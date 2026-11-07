@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tokeniser Explorer</title>
+<meta name="description" content="Compare how large language models and linguists split text into tokens.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --lab-teal:        #069494;
+  --lab-teal-light:  #e6f7f7;
+  --lab-black:       #1a1a1a;
+  --lab-white:       #ffffff;
+  --lab-grey-mid:    #555555;
+  --lab-grey-light:  #f5f5f5;
+  --lab-grey-border: #e0e0e0;
+  --lab-footer-bg:   #1a1a1a;
+  --lab-footer-text: #cccccc;
+  --green:        #057a55;
+  --green-light:  #def7ec;
+  --red:          #dc2626;
+  --red-light:    #fee2e2;
+  --yellow:       #c27803;
+  --yellow-light: #fdf6b2;
+  --purple:       #7c3aed;
+  --purple-light: #ede9fe;
+  /* token chip palette (flat, light) */
+  --t1: #e6f7f7; --t2: #fdf6b2; --t3: #ede9fe; --t4: #def7ec; --t5: #fee2e2; --t6: #e0ecff;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: 'DM Sans', 'Helvetica Neue', Arial, sans-serif;
+  font-size: 1rem; line-height: 1.6;
+  color: var(--lab-black); background: var(--lab-grey-light);
+}
+a { color: var(--lab-teal); }
+h1 { font-size: 2.5rem; font-weight: 700; margin: 0 0 12px; line-height: 1.2; }
+h2 { font-size: 1.75rem; font-weight: 700; margin: 0 0 16px; }
+h3 { font-size: 1.25rem; font-weight: 700; margin: 24px 0 8px; }
+.wrap { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+.credit { font-size: 0.875rem; color: var(--lab-grey-mid); }
+
+/* Header */
+header.site {
+  position: sticky; top: 0; z-index: 10;
+  background: var(--lab-white); border-bottom: 1px solid var(--lab-grey-border);
+}
+header.site .wrap { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding-top: 12px; padding-bottom: 12px; flex-wrap: wrap; }
+header.site .brand { font-weight: 700; font-size: 0.875rem; }
+
+/* Hero */
+.hero { background: var(--lab-teal); color: var(--lab-white); text-align: center; padding: 64px 0; }
+.hero h1 { color: var(--lab-white); }
+.hero p { max-width: 720px; margin: 0 auto 16px; }
+.hero .credit, .hero .credit a { color: var(--lab-white); }
+.badges { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 16px; }
+.badge { border: 1px solid var(--lab-white); padding: 2px 10px; font-size: 0.875rem; font-weight: 500; }
+
+/* Tabs */
+.tabs-bar { background: var(--lab-white); border-bottom: 1px solid var(--lab-grey-border); }
+.tabs-bar .wrap { display: flex; overflow-x: auto; padding: 0; }
+.tab-btn {
+  font: inherit; font-size: 0.875rem; font-weight: 700;
+  background: transparent; color: var(--lab-grey-mid);
+  border: 0; padding: 14px 20px; cursor: pointer; white-space: nowrap;
+}
+.tab-btn:hover { color: var(--lab-black); }
+.tab-btn.active { background: var(--lab-teal); color: #fff; }
+.tab-btn:focus-visible, button:focus-visible, select:focus-visible, textarea:focus-visible, input:focus-visible { outline: 3px solid var(--lab-black); outline-offset: 2px; }
+
+/* Content */
+main { padding: 64px 0; }
+.panel { display: none; }
+.panel.active { display: block; }
+.card { background: var(--lab-white); border: 1px solid var(--lab-grey-border); padding: 24px; margin-bottom: 24px; }
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+.grid .card { margin-bottom: 0; }
+.note { background: var(--lab-teal-light); border-left: 4px solid var(--lab-teal); padding: 12px 16px; margin: 16px 0; }
+.warn { background: var(--yellow-light); border-left: 4px solid var(--yellow); padding: 12px 16px; margin: 16px 0; }
+.lead { max-width: 820px; }
+
+/* Controls */
+label.field { display: block; font-size: 0.875rem; font-weight: 700; margin-bottom: 6px; }
+textarea {
+  width: 100%; min-height: 140px; resize: vertical;
+  font: inherit; padding: 12px; border: 1px solid var(--lab-grey-border); background: var(--lab-white); color: var(--lab-black);
+}
+.controls { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; margin: 12px 0; }
+.controls label { font-size: 0.875rem; display: inline-flex; gap: 6px; align-items: center; }
+select { font: inherit; font-size: 0.875rem; padding: 6px 8px; border: 1px solid var(--lab-grey-border); background: var(--lab-white); color: var(--lab-black); }
+.btn {
+  font: inherit; font-size: 0.875rem; font-weight: 700; cursor: pointer;
+  border: 1px solid var(--lab-teal); background: var(--lab-white); color: var(--lab-teal); padding: 6px 12px;
+}
+.btn:hover { background: var(--lab-teal-light); }
+.btn.primary { background: var(--lab-teal); color: #fff; }
+.samples { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+.samples span { font-size: 0.875rem; color: var(--lab-grey-mid); }
+
+/* Stats */
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin: 16px 0; }
+.stat { border: 1px solid var(--lab-grey-border); padding: 12px; background: var(--lab-white); }
+.stat .v { font-size: 1.75rem; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.stat .k { font-size: 0.875rem; color: var(--lab-grey-mid); }
+
+/* Token output */
+.tokens {
+  border: 1px solid var(--lab-grey-border); background: var(--lab-white);
+  padding: 12px; min-height: 80px; line-height: 2.1; word-break: break-word;
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 0.95rem;
+}
+.tok { padding: 2px 1px; white-space: pre-wrap; border-right: 1px solid var(--lab-white); }
+.tok.c0 { background: var(--t1); } .tok.c1 { background: var(--t2); } .tok.c2 { background: var(--t3); }
+.tok.c3 { background: var(--t4); } .tok.c4 { background: var(--t5); } .tok.c5 { background: var(--t6); }
+.tok .ws { color: var(--lab-grey-mid); }
+.tok sub { font-size: 0.7rem; color: var(--lab-grey-mid); margin-left: 2px; }
+.tok.punct { background: var(--lab-grey-light); color: var(--lab-grey-mid); }
+.status { font-size: 0.875rem; color: var(--lab-grey-mid); margin-top: 8px; min-height: 1.4em; }
+
+table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--lab-grey-border); }
+th { font-size: 0.875rem; color: var(--lab-grey-mid); }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.bar { display: inline-block; height: 10px; background: var(--lab-teal); vertical-align: middle; }
+.table-wrap { overflow-x: auto; }
+
+/* Accordion */
+.acc { border: 1px solid var(--lab-grey-border); margin-top: 12px; background: var(--lab-white); }
+.acc-btn {
+  width: 100%; text-align: left; font: inherit; font-weight: 700; font-size: 0.95rem;
+  background: var(--lab-white); border: 0; padding: 12px 16px; cursor: pointer; color: var(--lab-black);
+}
+.acc-btn::before { content: '+ '; color: var(--lab-teal); }
+.acc.open .acc-btn::before { content: '− '; }
+.acc-body { display: none; padding: 0 16px 16px; }
+.acc.open .acc-body { display: block; }
+.task-num { color: var(--lab-teal); font-weight: 700; }
+
+ul.sources li { margin-bottom: 10px; }
+
+footer { background: var(--lab-footer-bg); color: var(--lab-footer-text); padding: 40px 0; font-size: 0.875rem; }
+footer a { color: var(--lab-white); }
+
+@media (max-width: 768px) {
+  .grid { grid-template-columns: repeat(2, 1fr); }
+  h1 { font-size: 2rem; }
+}
+@media (max-width: 480px) {
+  .wrap { padding: 0 16px; }
+  .grid { grid-template-columns: 1fr; }
+  .hero, main { padding: 40px 0; }
+  h1 { font-size: 1.75rem; }
+  h2 { font-size: 1.4rem; }
+}
+</style>
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap">
+    <span class="brand">Tokeniser Explorer</span>
+    <span class="credit">Designed by <a href="https://www.linkedin.com/in/hagu1/" target="_blank" rel="noopener">Hamid Guedra</a>
+      (Language Centre, <a href="https://lab.fi/en" target="_blank" rel="noopener">LAB University of Applied Sciences</a>)</span>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap">
+    <div class="badges"><span class="badge">AI literacy</span><span class="badge">Language analysis</span><span class="badge">Runs in your browser</span></div>
+    <h1>Tokeniser Explorer</h1>
+    <p>See how a large language model splits text into tokens, and compare that with how a linguist counts words and sentences.</p>
+    <p class="credit">Designed by <a href="https://www.linkedin.com/in/hagu1/" target="_blank" rel="noopener">Hamid Guedra</a>
+      (Language Centre, <a href="https://lab.fi/en" target="_blank" rel="noopener">LAB University of Applied Sciences</a>)</p>
+  </div>
+</section>
+
+<nav class="tabs-bar" aria-label="Sections">
+  <div class="wrap" role="tablist">
+    <button class="tab-btn active" data-tab="about" role="tab">What is a token?</button>
+    <button class="tab-btn" data-tab="llm" role="tab">LLM tokeniser</button>
+    <button class="tab-btn" data-tab="ling" role="tab">Linguistic tokeniser</button>
+    <button class="tab-btn" data-tab="tasks" role="tab">Tasks</button>
+    <button class="tab-btn" data-tab="sources" role="tab">Sources</button>
+  </div>
+</nav>
+
+<main>
+<div class="wrap">
+
+<!-- ABOUT -->
+<section class="panel active" id="panel-about">
+  <h2>Two meanings of “token”</h2>
+  <p class="lead">The word <em>token</em> means different things to a linguist and to an AI engineer. This tool shows both, using the same text, so you can compare them.</p>
+  <div class="grid">
+    <div class="card">
+      <h3 style="margin-top:0">In linguistics</h3>
+      <p>A token is one occurrence of a word in a text. A <em>type</em> is a distinct word. “The cat saw the dog” has five tokens and four types, because <em>the</em> appears twice.</p>
+      <p>Linguists use these counts to describe vocabulary range, for example with the type/token ratio.</p>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">In language models</h3>
+      <p>A token is a unit from a fixed vocabulary that the model reads and writes. It can be a whole word, part of a word, a space plus a word, a punctuation mark or a single byte.</p>
+      <p>Each token has a number (its ID). The model never sees letters; it sees a sequence of these numbers.</p>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">Why it matters</h3>
+      <p>Model limits and prices are counted in tokens, not words. Common English words are often one token each. Rarer words, names and many non-English languages, Finnish included, tend to need more tokens per word.</p>
+    </div>
+  </div>
+  <div class="card" style="margin-top:24px">
+    <h3 style="margin-top:0">How LLM tokenisers are built</h3>
+    <p>Most current models use a method based on <strong>byte-pair encoding</strong> (BPE). Training starts from single bytes and repeatedly merges the most frequent adjacent pair into a new vocabulary item. After many merges, frequent words become single tokens and rare words are left as several pieces. The tokeniser is fixed before the model is trained, and different models use different vocabularies.</p>
+    <div class="note">The LLM tab uses OpenAI's published encodings, loaded through the open-source <a href="https://github.com/niieani/gpt-tokenizer" target="_blank" rel="noopener">gpt-tokenizer</a> library. Other companies' models (Claude, Gemini, Llama) use their own tokenisers, so their counts will differ. Treat the numbers here as an example of the method, not a count for every model.</div>
+  </div>
+</section>
+
+<!-- LLM -->
+<section class="panel" id="panel-llm">
+  <h2>LLM tokeniser</h2>
+  <div class="card">
+    <label class="field" for="text-llm">Your text</label>
+    <textarea id="text-llm" class="shared-text" spellcheck="false"></textarea>
+    <div class="samples"><span>Try:</span>
+      <button class="btn sample" data-sample="en">English</button>
+      <button class="btn sample" data-sample="fi">Finnish</button>
+      <button class="btn sample" data-sample="long">Long word</button>
+      <button class="btn sample" data-sample="mixed">Numbers &amp; emoji</button>
+      <button class="btn sample" data-sample="clear">Clear</button>
+    </div>
+    <div class="controls">
+      <label>Encoding
+        <select id="encoding">
+          <option value="o200k_base">o200k_base (GPT-4o and later)</option>
+          <option value="cl100k_base">cl100k_base (GPT-4, GPT-3.5)</option>
+        </select>
+      </label>
+      <label><input type="checkbox" id="show-ids"> Show token IDs</label>
+      <label><input type="checkbox" id="show-ws" checked> Mark spaces (·) and line breaks (↵)</label>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="v" id="l-chars">0</div><div class="k">characters</div></div>
+      <div class="stat"><div class="v" id="l-words">0</div><div class="k">words</div></div>
+      <div class="stat"><div class="v" id="l-tokens">0</div><div class="k">LLM tokens</div></div>
+      <div class="stat"><div class="v" id="l-ratio">–</div><div class="k">tokens per word</div></div>
+    </div>
+    <div class="tokens" id="llm-out" aria-live="polite"></div>
+    <div class="status" id="llm-status"></div>
+    <div class="warn" id="byte-note" hidden>A � means the token holds only part of a character. Some letters and most emoji are stored as several bytes, and the tokeniser can split them across tokens.</div>
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0">Token IDs</h3>
+    <p class="credit">This is what the model actually receives.</p>
+    <div class="tokens" id="llm-ids" style="min-height:48px"></div>
+  </div>
+</section>
+
+<!-- LINGUISTIC -->
+<section class="panel" id="panel-ling">
+  <h2>Linguistic tokeniser</h2>
+  <div class="card">
+    <label class="field" for="text-ling">Your text (shared with the LLM tab)</label>
+    <textarea id="text-ling" class="shared-text" spellcheck="false"></textarea>
+    <div class="samples"><span>Try:</span>
+      <button class="btn sample" data-sample="en">English</button>
+      <button class="btn sample" data-sample="fi">Finnish</button>
+      <button class="btn sample" data-sample="long">Long word</button>
+      <button class="btn sample" data-sample="mixed">Numbers &amp; emoji</button>
+      <button class="btn sample" data-sample="clear">Clear</button>
+    </div>
+    <div class="controls">
+      <label>Language rules
+        <select id="lang">
+          <option value="en">English</option>
+          <option value="fi">Finnish</option>
+          <option value="sv">Swedish</option>
+          <option value="de">German</option>
+          <option value="fr">French</option>
+        </select>
+      </label>
+      <label><input type="checkbox" id="lowercase" checked> Ignore capitals when counting types</label>
+      <label><input type="checkbox" id="show-punct"> Show punctuation tokens</label>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="v" id="g-sent">0</div><div class="k">sentences</div></div>
+      <div class="stat"><div class="v" id="g-tokens">0</div><div class="k">word tokens</div></div>
+      <div class="stat"><div class="v" id="g-types">0</div><div class="k">word types</div></div>
+      <div class="stat"><div class="v" id="g-ttr">–</div><div class="k">type/token ratio</div></div>
+      <div class="stat"><div class="v" id="g-msl">–</div><div class="k">words per sentence</div></div>
+      <div class="stat"><div class="v" id="g-mwl">–</div><div class="k">letters per word</div></div>
+    </div>
+    <div class="tokens" id="ling-out" aria-live="polite"></div>
+    <div class="note">Type/token ratio falls as texts get longer, because common words repeat. Compare it only between texts of similar length.</div>
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0">Most frequent words</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>Type</th><th class="num">Count</th><th class="num">% of tokens</th><th></th></tr></thead>
+        <tbody id="freq"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- TASKS -->
+<section class="panel" id="panel-tasks">
+  <h2>Tasks</h2>
+  <p class="lead">Work through these with a partner. Write down your prediction before you test it, then open “What to notice”.</p>
+
+  <div class="card">
+    <h3 style="margin-top:0"><span class="task-num">1.</span> Words versus tokens</h3>
+    <p>Paste a paragraph from one of your own assignments. Note the word count and the LLM token count. Is the ratio above or below 1.5 tokens per word?</p>
+    <div class="acc"><button class="acc-btn" aria-expanded="false">What to notice</button>
+      <div class="acc-body"><p>Plain English prose usually needs somewhat more tokens than words. Technical terms, names and unusual spellings push the ratio up. Look at which words were split and ask why those words in particular.</p></div></div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0"><span class="task-num">2.</span> English and Finnish</h3>
+    <p>Load the English sample, note the tokens per word, then load the Finnish sample (the same message). Predict first: which will need more tokens per word?</p>
+    <div class="acc"><button class="acc-btn" aria-expanded="false">What to notice</button>
+      <div class="acc-body"><p>Finnish adds case endings and suffixes to words, so one Finnish word often carries what English expresses in several. The tokeniser's vocabulary was built mostly from English-heavy data, so Finnish words are more often broken into pieces. The same content can cost more tokens, which affects price and how much text fits in a model's context window.</p></div></div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0"><span class="task-num">3.</span> Spaces and capitals</h3>
+    <p>Type <code>apple</code>, then <code> apple</code> (with a space before it), then <code>Apple</code> and <code>APPLE</code>. Turn on “Show token IDs”. Are they the same token?</p>
+    <div class="acc"><button class="acc-btn" aria-expanded="false">What to notice</button>
+      <div class="acc-body"><p>The leading space is usually part of the token, and capitalised forms often have different IDs. To the model, “apple” at the start of a line and “ apple” mid-sentence can be different items. This is one reason models sometimes struggle with tasks like counting letters or reversing words: they do not see individual letters.</p></div></div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0"><span class="task-num">4.</span> Two meanings of “token”</h3>
+    <p>Using the same text, compare “word tokens” in the Linguistic tab with “LLM tokens”. Then write two sentences explaining the difference to a classmate who has not used this tool.</p>
+    <div class="acc"><button class="acc-btn" aria-expanded="false">What to notice</button>
+      <div class="acc-body"><p>A linguistic token is defined by the language (a word occurrence). An LLM token is defined by a vocabulary learned from data, chosen for efficiency, not meaning. A good explanation names both definitions and gives one example where they differ.</p></div></div>
+  </div>
+</section>
+
+<!-- SOURCES -->
+<section class="panel" id="panel-sources">
+  <h2>Sources</h2>
+  <div class="card">
+    <ul class="sources">
+      <li>Sennrich, R., Haddow, B. &amp; Birch, A. (2016). Neural machine translation of rare words with subword units. <em>Proceedings of the 54th Annual Meeting of the Association for Computational Linguistics</em>, 1715–1725. <a href="https://doi.org/10.18653/v1/P16-1162" target="_blank" rel="noopener">https://doi.org/10.18653/v1/P16-1162</a></li>
+      <li>Petrov, A., La Malfa, E., Torr, P. H. S. &amp; Bibi, A. (2023). Language model tokenizers introduce unfairness between languages. <em>Advances in Neural Information Processing Systems 36</em>. <a href="https://arxiv.org/abs/2305.15425" target="_blank" rel="noopener">https://arxiv.org/abs/2305.15425</a></li>
+      <li>Jurafsky, D. &amp; Martin, J. H. <em>Speech and language processing</em> (3rd ed., draft). <a href="https://web.stanford.edu/~jurafsky/slp3/" target="_blank" rel="noopener">https://web.stanford.edu/~jurafsky/slp3/</a></li>
+      <li>OpenAI. <em>tiktoken</em> [software]. <a href="https://github.com/openai/tiktoken" target="_blank" rel="noopener">https://github.com/openai/tiktoken</a></li>
+      <li>Ehrlich, B. (niieani). <em>gpt-tokenizer</em> [software, MIT licence]. <a href="https://github.com/niieani/gpt-tokenizer" target="_blank" rel="noopener">https://github.com/niieani/gpt-tokenizer</a></li>
+      <li>MDN Web Docs. <em>Intl.Segmenter</em> (used for word and sentence splitting in the Linguistic tab). <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/Segmenter" target="_blank" rel="noopener">https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/Segmenter</a></li>
+    </ul>
+    <p class="credit">Text you type stays in your browser. Nothing is sent to a server; the tokeniser files are downloaded from a public code library (jsDelivr) the first time you use the LLM tab.</p>
+  </div>
+</section>
+
+</div>
+</main>
+
+<footer>
+  <div class="wrap">
+    Tokeniser Explorer · Designed by <a href="https://www.linkedin.com/in/hagu1/" target="_blank" rel="noopener">Hamid Guedra</a>
+    (Language Centre, <a href="https://lab.fi/en" target="_blank" rel="noopener">LAB University of Applied Sciences</a>)
+  </div>
+</footer>
+
+<script type="module">
+const CDN = 'https://cdn.jsdelivr.net/npm/gpt-tokenizer@2.9.0/esm/encoding/';
+const SAMPLES = {
+  en: 'Please submit your essay by Friday. Remember to cite your sources and to explain how you used AI tools.',
+  fi: 'Palauta esseesi perjantaihin mennessä. Muista merkitä lähteesi ja kertoa, miten käytit tekoälytyökaluja.',
+  long: 'lentokonesuihkuturbiinimoottoriapumekaanikkoaliupseerioppilas\nantidisestablishmentarianism\nunbelievably',
+  mixed: 'In 2026, 1,234,567 students sent 42 emails 😀🇫🇮 at 09:45.'
+};
+
+/* ---------- Tabs ---------- */
+const tabs = document.querySelectorAll('.tab-btn');
+function showTab(name) {
+  tabs.forEach(b => { const on = b.dataset.tab === name; b.classList.toggle('active', on); b.setAttribute('aria-selected', on); });
+  document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  if (name === 'llm') runLLM();
+  if (name === 'ling') runLing();
+}
+tabs.forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
+
+/* ---------- Accordions ---------- */
+document.querySelectorAll('.acc-btn').forEach(btn => btn.addEventListener('click', () => {
+  const acc = btn.parentElement; acc.classList.toggle('open');
+  btn.setAttribute('aria-expanded', acc.classList.contains('open'));
+}));
+
+/* ---------- Shared text ---------- */
+const areas = document.querySelectorAll('.shared-text');
+let text = SAMPLES.en;
+function setText(t, src) {
+  text = t;
+  areas.forEach(a => { if (a !== src) a.value = t; });
+  schedule();
+}
+areas.forEach(a => { a.value = text; a.addEventListener('input', () => setText(a.value, a)); });
+document.querySelectorAll('.sample').forEach(b => b.addEventListener('click', () => {
+  setText(b.dataset.sample === 'clear' ? '' : SAMPLES[b.dataset.sample], null);
+}));
+let timer;
+function schedule() { clearTimeout(timer); timer = setTimeout(() => { runLLM(); runLing(); }, 150); }
+
+/* ---------- Helpers ---------- */
+const $ = id => document.getElementById(id);
+const fmt = n => n.toLocaleString('en-CA');
+function esc(s) { return s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function countWords(t, lang) {
+  if (!('Segmenter' in Intl)) return (t.match(/\S+/g) || []).length;
+  let n = 0; for (const s of new Intl.Segmenter(lang, { granularity: 'word' }).segment(t)) if (s.isWordLike) n++;
+  return n;
+}
+
+/* ---------- LLM tokeniser ---------- */
+const encoders = {};
+async function getEncoder(name) {
+  if (!encoders[name]) encoders[name] = import(CDN + name + '.js');
+  return encoders[name];
+}
+let llmRun = 0;
+async function runLLM() {
+  if (!$('panel-llm').classList.contains('active')) return;
+  const run = ++llmRun;
+  const name = $('encoding').value;
+  const words = countWords(text, 'en');
+  $('l-chars').textContent = fmt([...text].length);
+  $('l-words').textContent = fmt(words);
+  let enc;
+  try {
+    if (!encoders[name]) $('llm-status').textContent = 'Loading the ' + name + ' vocabulary (one-off download, about 2 MB)…';
+    enc = await getEncoder(name);
+  } catch (e) {
+    delete encoders[name];
+    $('llm-status').textContent = 'Could not load the tokeniser. Check your internet connection and reload the page.';
+    return;
+  }
+  if (run !== llmRun) return;
+  $('llm-status').textContent = '';
+  const ids = enc.encode(text);
+  $('l-tokens').textContent = fmt(ids.length);
+  $('l-ratio').textContent = words ? (ids.length / words).toFixed(2) : '–';
+  const showIds = $('show-ids').checked, showWs = $('show-ws').checked;
+  let html = '', partial = false;
+  ids.forEach((id, i) => {
+    let piece = enc.decode([id]);
+    if (piece.includes('�')) partial = true;
+    let shown = esc(piece);
+    if (showWs) shown = shown.replace(/ /g, '<span class="ws">·</span>').replace(/\n/g, '<span class="ws">↵</span>\n');
+    html += `<span class="tok c${i % 6}" title="Token ${i + 1} · ID ${id}">${shown}${showIds ? `<sub>${id}</sub>` : ''}</span>`;
+  });
+  $('llm-out').innerHTML = html || '<span class="credit">Type or paste some text above.</span>';
+  $('llm-ids').textContent = ids.length ? '[' + ids.join(', ') + ']' : '';
+  $('byte-note').hidden = !partial;
+}
+['encoding', 'show-ids', 'show-ws'].forEach(id => $(id).addEventListener('change', runLLM));
+
+/* ---------- Linguistic tokeniser ---------- */
+function runLing() {
+  if (!$('panel-ling').classList.contains('active')) return;
+  const lang = $('lang').value, lower = $('lowercase').checked, showP = $('show-punct').checked;
+  const hasSeg = 'Segmenter' in Intl;
+  let segs = [];
+  if (hasSeg) {
+    for (const s of new Intl.Segmenter(lang, { granularity: 'word' }).segment(text)) {
+      if (s.isWordLike) segs.push({ t: s.segment, w: true });
+      else if (s.segment.trim()) segs.push({ t: s.segment.trim(), w: false });
+    }
+  } else {
+    (text.match(/[\p{L}\p{N}'’-]+|[^\s\p{L}\p{N}]/gu) || []).forEach(t => segs.push({ t, w: /[\p{L}\p{N}]/u.test(t) }));
+  }
+  let sentences = 0;
+  if (hasSeg) { for (const s of new Intl.Segmenter(lang, { granularity: 'sentence' }).segment(text)) if (s.segment.trim()) sentences++; }
+  else sentences = (text.match(/[^.!?]+[.!?]*/g) || []).filter(s => s.trim()).length;
+
+  const words = segs.filter(s => s.w).map(s => s.t);
+  const freq = new Map();
+  words.forEach(w => { const k = lower ? w.toLocaleLowerCase(lang) : w; freq.set(k, (freq.get(k) || 0) + 1); });
+  const letters = words.reduce((n, w) => n + (w.match(/\p{L}/gu) || []).length, 0);
+
+  $('g-sent').textContent = fmt(sentences);
+  $('g-tokens').textContent = fmt(words.length);
+  $('g-types').textContent = fmt(freq.size);
+  $('g-ttr').textContent = words.length ? (freq.size / words.length).toFixed(2) : '–';
+  $('g-msl').textContent = sentences ? (words.length / sentences).toFixed(1) : '–';
+  $('g-mwl').textContent = words.length ? (letters / words.length).toFixed(1) : '–';
+
+  let i = 0;
+  const out = segs.filter(s => s.w || showP).map(s =>
+    s.w ? `<span class="tok c${(i++) % 6}">${esc(s.t)}</span>` : `<span class="tok punct">${esc(s.t)}</span>`
+  ).join(' ');
+  $('ling-out').innerHTML = out || '<span class="credit">Type or paste some text above.</span>';
+
+  const rows = [...freq.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], lang)).slice(0, 20);
+  const max = rows.length ? rows[0][1] : 1;
+  $('freq').innerHTML = rows.map(([w, c], r) =>
+    `<tr><td>${r + 1}</td><td>${esc(w)}</td><td class="num">${c}</td><td class="num">${(100 * c / words.length).toFixed(1)}</td><td><span class="bar" style="width:${Math.round(80 * c / max)}px"></span></td></tr>`
+  ).join('') || '<tr><td colspan="5" class="credit">No words yet.</td></tr>';
+}
+['lang', 'lowercase', 'show-punct'].forEach(id => $(id).addEventListener('change', runLing));
+</script>
+</body>
+</html>
